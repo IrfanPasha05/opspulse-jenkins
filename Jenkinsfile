@@ -80,7 +80,7 @@ pipeline {
                     
                     sudo python3 -m venv ${DEPLOY_DIR}/venv
 
-                    sudo ${DEPLOY_DIR}/venv/bin/pip install \
+                     ${DEPLOY_DIR}/venv/bin/pip install \
                         -r ${DEPLOY_DIR}/requirements.txt
 
                     sudo chown -R jenkins:jenkins ${DEPLOY_DIR}

@@ -53,27 +53,31 @@ pipeline {
             }
         }
 
-        stage('Build Artifact') {
-            steps {
-                echo '======================================'
-                echo 'Creating deployment artifact...'
-                echo '======================================'
+       stage('Build Artifact') {
+    steps {
+        echo '======================================'
+        echo 'Creating deployment artifact...'
+        echo '======================================'
 
-                sh '''
-                    rm -f opspulse-*.tar.gz
+        sh '''
+            rm -f opspulse-*.tar.gz
 
-                    tar \
-                        --exclude='./venv' \
-                        --exclude='./.git' \
-                        --exclude='./opspulse-*.tar.gz' \
-                        -czf opspulse-${BUILD_NUMBER}.tar.gz .
-                '''
+            # Create the archive OUTSIDE the Jenkins workspace
+            tar \
+                --exclude='./venv' \
+                --exclude='./.git' \
+                -czf ../opspulse-${BUILD_NUMBER}.tar.gz .
 
-                archiveArtifacts artifacts: "opspulse-${BUILD_NUMBER}.tar.gz",
-                                 fingerprint: true
-            }
-        }
+            # Copy the completed archive back into the workspace
+            cp ../opspulse-${BUILD_NUMBER}.tar.gz .
+        '''
 
+        archiveArtifacts artifacts: "opspulse-${BUILD_NUMBER}.tar.gz",
+                         fingerprint: true
+    }
+}
+              
+ 
         stage('Deploy') {
             steps {
                 echo '======================================'

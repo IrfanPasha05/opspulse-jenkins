@@ -3,18 +3,20 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = 'opspulse'
-        APP_PORT = '5000'
-        VENV_DIR = 'venv'
+        APP_NAME   = 'opspulse'
+        APP_PORT   = '5000'
         DEPLOY_DIR = '/opt/opspulse'
+        VENV_DIR   = 'venv'
+        PID_FILE   = 'opspulse.pid'
     }
 
     stages {
 
         stage('Checkout') {
             steps {
+                echo '======================================'
                 echo 'Checking out OpsPulse from GitHub...'
-                checkout scm
+                echo '======================================'
             }
         }
 
@@ -38,15 +40,16 @@ pipeline {
 
         stage('Run Tests') {
             steps {
+                echo '======================================'
                 echo 'Running automated tests...'
+                echo '======================================'
 
                 sh '''
                     . ${VENV_DIR}/bin/activate
 
                     python -m pytest -v
-
-              '''
-           }
+                '''
+            }
         }
 
         stage('Build Artifact') {
@@ -55,44 +58,58 @@ pipeline {
 
                 sh '''
                     tar \
-                    --exclude='./venv' \
-                    --exclude='./.git' \
-                    -czf opspulse-${BUILD_NUMBER}.tar.gz .
+                        --exclude=./venv \
+                        --exclude=./.git \
+                        -czf opspulse-${BUILD_NUMBER}.tar.gz .
                 '''
 
-                archiveArtifacts artifacts: 'opspulse-*.tar.gz',
+                archiveArtifacts artifacts: "opspulse-${BUILD_NUMBER}.tar.gz",
                                  fingerprint: true
             }
         }
 
         stage('Deploy') {
             steps {
+                echo '======================================'
                 echo 'Deploying OpsPulse to EC2...'
+                echo '======================================'
 
                 sh '''
+                    # Create deployment directory
                     sudo mkdir -p ${DEPLOY_DIR}
 
+                    # Copy application files
                     sudo cp app.py ${DEPLOY_DIR}/
-                 
-                   sudo cp requirements.txt ${DEPLOY_DIR}/
+                    sudo cp requirements.txt ${DEPLOY_DIR}/
 
-                   sudo cp -r templates ${DEPLOY_DIR}/
-                    
+                    # Copy templates
+                    sudo mkdir -p ${DEPLOY_DIR}/templates
+                    sudo cp -r templates/. ${DEPLOY_DIR}/templates/
+
+                    # Create deployment virtual environment
                     sudo python3 -m venv ${DEPLOY_DIR}/venv
 
-                     ${DEPLOY_DIR}/venv/bin/pip install \
-                        -r ${DEPLOY_DIR}/requirements.txt
-
+                    # Give Jenkins ownership of deployment files
                     sudo chown -R jenkins:jenkins ${DEPLOY_DIR}
 
+                    # Install production dependencies
+                    ${DEPLOY_DIR}/venv/bin/pip install \
+                        -r ${DEPLOY_DIR}/requirements.txt
+
+                    # Restart application
                     sudo systemctl restart ${APP_NAME}
+
+                    # Show service status
+                    sudo systemctl --no-pager status ${APP_NAME} || true
                 '''
             }
         }
 
         stage('Health Check') {
             steps {
-                echo 'Checking application health...'
+                echo '======================================'
+                echo 'Checking OpsPulse health...'
+                echo '======================================'
 
                 sh '''
                     sleep 3
@@ -107,11 +124,10 @@ pipeline {
 
         success {
             echo '======================================'
-            echo '       OPSSPULSE DEPLOYED'
+            echo '       OPSSPULSE DEPLOYMENT SUCCESS'
             echo '======================================'
-            echo "Application: ${APP_NAME}"
-            echo "Port: ${APP_PORT}"
-            echo 'Status: HEALTHY'
+            echo "OpsPulse is running on port ${APP_PORT}"
+            echo "Build number: ${BUILD_NUMBER}"
         }
 
         failure {
@@ -119,6 +135,18 @@ pipeline {
             echo '       OPSSPULSE DEPLOYMENT FAILED'
             echo '======================================'
             echo 'Check the failed stage above.'
+
+            sh '''
+                echo "----- Service Status -----"
+                sudo systemctl --no-pager status ${APP_NAME} || true
+
+                echo "----- Recent Service Logs -----"
+                sudo journalctl -u ${APP_NAME} -n 50 --no-pager || true
+            '''
+        }
+
+        always {
+            echo "Jenkins build completed: ${BUILD_NUMBER}"
         }
     }
 }

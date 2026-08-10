@@ -73,10 +73,10 @@ pipeline {
                     sudo mkdir -p ${DEPLOY_DIR}
 
                     sudo cp app.py ${DEPLOY_DIR}/
-                    sudo cp database.py ${DEPLOY_DIR}/
-                    sudo cp requirements.txt ${DEPLOY_DIR}/
+                 
+                   sudo cp requirements.txt ${DEPLOY_DIR}/
 
-                    sudo cp -r templates ${DEPLOY_DIR}/
+                   sudo cp -r templates ${DEPLOY_DIR}/
                     
                     sudo python3 -m venv ${DEPLOY_DIR}/venv
 

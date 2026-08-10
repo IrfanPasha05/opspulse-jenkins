@@ -43,9 +43,10 @@ pipeline {
                 sh '''
                     . ${VENV_DIR}/bin/activate
 
-                    pytest -v
-                '''
-            }
+                    python -m pytest -v
+
+              '''
+           }
         }
 
         stage('Build Artifact') {
